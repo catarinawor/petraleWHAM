@@ -6,7 +6,7 @@ petrale<-readRDS(paste0(here(),"/data/Petrale_Dat.rds"))
 names(petrale)
 
 petrale$catch
-petrale$lifehistory
+names(petrale$lifehistory)
 petrale$comps
 
 
