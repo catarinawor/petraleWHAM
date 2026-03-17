@@ -6,6 +6,8 @@ petrale<-readRDS(paste0(here(),"/data/Petrale_Dat.rds"))
 names(petrale)
 
 petrale$catch
+petrale$lifehistory
+petrale$comps
 
 
 lib.loc <- NULL
@@ -17,9 +19,27 @@ library("wham", lib.loc = lib.loc)
 #not using asap3 dat file - combined sexes
 ##############################################
 #read basic data files and make inputs
-
+n_ages<-22
 n_regions <- 1
 n_stocks <- 1
+
+#create the maturity at age stock - importing numbers from assessment because
+#of the way they were computed'
+
+mat_male <- c(0.03654435, 0.07405546, 0.14430313, 0.26230936, 0.42849357, 
+              0.61253961, 0.76923560, 0.87544664, 0.93679020, 0.96899167, 
+              0.98505028, 0.99285378, 0.99659805, 0.99838370, 0.99923280, 
+              0.99963600, 0.99982734, 0.99991811, 0.99996116, 0.99998158, 
+              0.99999126, 0.99999586)
+
+mat_female<-c(0.01828895, 0.04204743, 0.09372312, 0.19591880, 0.36470515,
+              0.57493136, 0.76115096, 0.88246677, 0.94649548, 0.97656933,
+              0.98991929, 0.99569644, 0.99816889, 0.99922200, 0.99966964, 
+              0.99985976, 0.99994047, 0.99997473, 0.99998928, 0.99999545,
+              0.99999807, 0.99999918)
+
+plot(1/(1+exp(Fmatslope*(1:22-Fa50))))
+lines(plogis(1:22,Fa50,-Fmatslope))
 
 #just one maturity at age matrix (1 stock)
 temp <- lapply(1:n_stocks, \(i) as.matrix(read.csv(here("data", paste0("mat_",i,".csv")))))
