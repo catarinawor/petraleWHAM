@@ -1,5 +1,6 @@
 # Vignette 1: Getting data into WHAM
 library(here)
+library(dplyr)
 
 # Petrale Data
 petrale<-readRDS(paste0(here(),"/data/Petrale_Dat.rds"))
@@ -8,7 +9,7 @@ names(petrale)
 petrale$catch
 names(petrale$lifehistory)
 petrale$comps
-
+petrale$lifehistory$M
 
 lib.loc <- NULL
 #lib.loc <- "c:/work/wham/old_packages/lab"
@@ -22,55 +23,47 @@ library("wham", lib.loc = lib.loc)
 n_ages<-22
 n_regions <- 1
 n_stocks <- 1
-
+n_years<-nrow(petrale$catch)
 #create the maturity at age stock - importing numbers from assessment because
 #of the way they were computed'
 
-mat_male <- c(0.03654435, 0.07405546, 0.14430313, 0.26230936, 0.42849357, 
-              0.61253961, 0.76923560, 0.87544664, 0.93679020, 0.96899167, 
-              0.98505028, 0.99285378, 0.99659805, 0.99838370, 0.99923280, 
-              0.99963600, 0.99982734, 0.99991811, 0.99996116, 0.99998158, 
-              0.99999126, 0.99999586)
-
-mat_female<-c(0.01828895, 0.04204743, 0.09372312, 0.19591880, 0.36470515,
-              0.57493136, 0.76115096, 0.88246677, 0.94649548, 0.97656933,
-              0.98991929, 0.99569644, 0.99816889, 0.99922200, 0.99966964, 
-              0.99985976, 0.99994047, 0.99997473, 0.99998928, 0.99999545,
-              0.99999807, 0.99999918)
-
-plot(1/(1+exp(Fmatslope*(1:22-Fa50))))
-lines(plogis(1:22,Fa50,-Fmatslope))
-
-#just one maturity at age matrix (1 stock)
-temp <- lapply(1:n_stocks, \(i) as.matrix(read.csv(here("data", paste0("mat_",i,".csv")))))
-mat <- array(0, dim = c(n_stocks,dim(temp[[1]])))
-for(i in 1:n_stocks) mat[i,,] <- temp[[i]]
+mat_comb<-(petrale$lifehistory$Mmaa+petrale$lifehistory$Fmaa)/2
+mat <- array(0, dim = c(n_stocks, n_years, n_ages))
+for(i in 1:n_years) mat[1,i,] <- mat_comb
 
 dim(mat) #(n_stocks x n_years x n_ages)
-n_years <- dim(mat)[2]
-n_ages <- dim(mat)[3]
+
 
 #there are 7 WAA matrices
-temp <- lapply(1:7, \(i) as.matrix(read.csv(here("data", paste0("waa_",i,".csv")))))
+comb_waa<-(petrale$lifehistory$Mwaa +petrale$lifehistory$Fwaa)/2
+
+#temp <- lapply(1:7, \(i) as.matrix(read.csv(here("data", paste0("waa_",i,".csv")))))
+waa <- array(0, dim = c(1,n_years,n_ages))
+for(i in 1:n_years) waa[1,i,] <- comb_waa
+dim(waa)
 
 #the 7 here refers to waa to the 5 indices, the catch, and the population 
-waa <- array(0, dim = c(7,dim(temp[[1]])))
-for(i in 1:(dim(waa)[1])) waa[i,,] <- temp[[i]]
+#waa <- array(0, dim = c(7,dim(temp[[1]])))
+#for(i in 1:(dim(waa)[1])) waa[i,,] <- temp[[i]]
 
-waa_pointer_ssb <- 7
+waa_pointer_ssb <- 1
 
 #1 column for 1 stock
 #the fraction of the year that happened before the stock ocurred. 
-fracyr_ssb <- as.matrix(read.csv(here("data", "fracyr_ssb.csv")))
+#fracyr_ssb <- as.matrix(read.csv(here("data", "fracyr_ssb.csv")))
+fracyr_ssb <- matrix(0, ncol=1, nrow=n_years)
 
 #Make MAA array (n_stocks x n_regions x n_years x n_ages)
 MAA <- array(NA, dim = c(n_stocks, n_regions, n_years, n_ages))
-for(i in 1:n_stocks) for(j in 1:n_regions) MAA[i,j,,] <- as.matrix(read.csv(file = here("data", paste0("MAA_stock_", i, "_region_",j,".csv"))))
+for(i in 1:n_stocks) for(j in 1:n_regions) MAA[i,j,,] <- petrale$lifehistory$M
+  
+#as.matrix(read.csv(file = here("data", paste0("MAA_stock_", i, "_region_",j,".csv"))))
 
 
 ##############################################
 #read catch data and make inputs
-catch <- as.matrix(read.csv(here("data", "catch.csv")))
+catch <- as.matrix(petrale$catch$Catch, ncol=1)
+#catch <- as.matrix(read.csv(here("data", "catch.csv")))
 any(!catch>0) #cannot be any years without catch
 
 #should be n_years x n_fleets
@@ -79,21 +72,42 @@ dim(catch)
 #just one column: 1 fleet
 n_fleets <- NCOL(catch)
 
-catch_cv <- as.matrix(read.csv(here("data", "catch_cv.csv")))
+catch_cv <- as.matrix(petrale$catch$SE, ncol=1)
+  #as.matrix(read.csv(here("data", "catch_cv.csv")))
 any(!catch_cv>0) #cannot be any years with cv missing
 
 #should be n_years x n_fleets
 dim(catch_cv)
 
 #proportions at age matrix for each fleet is n_years x n_ages
-catch_paa <- as.matrix(read.csv(here("data", "catch_paa_fleet_1.csv")))
+catch_paa_raw<-petrale$comps[petrale$comps$Fleet=="Fishery",]
+  
+  
+  
+catch_paa_crop<-catch_paa_raw[,grepl("^F[0-9]+$", names(petrale$comps))]+
+                 catch_paa_raw[,grepl("^M[0-9]+$", names(petrale$comps))]
+catch_paa_crop <-cbind(catch_paa_raw[,"Year"],(catch_paa_crop))
+#expand matrix so that it has all years
+catch_paa_join<-left_join(data.frame(Year=1938:2023),catch_paa_crop)
+
+all_years<-data.frame(Year=1938:2023) 
+df_filled <-merge(all_years, catch_paa_crop, by = "Year", all.x = TRUE)
+
+  #as.matrix(read.csv(here("data", "catch_paa_fleet_1.csv")))
 dim(catch_paa) 
+
+sort(petrale$comps$"Year")
+
 
 #array used by WHAM: (n_fleets x n_years x n_ages)
 catch_paa <- array(catch_paa, dim = c(1,dim(catch_paa)))
 catch_paa[which(catch_paa<0)] <- NA
 
-catch_Neff <- as.matrix(read.csv(here("data", "catch_Neff.csv")))
+
+
+
+catch_Neff <- as.matrix(petrale$comps$`Sample Size`,ncol=1)
+  #as.matrix(read.csv(here("data", "catch_Neff.csv")))
 
 #should be n_years x n_fleets
 dim(catch_Neff)
