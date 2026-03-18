@@ -56,7 +56,7 @@ waa_pointer_ssb <- 1
 fracyr_ssb <- as.matrix(rep(0,n_years))
 dim(fracyr_ssb)
 
-basic_info$fracyr_SSB
+
 #Make MAA array (n_stocks x n_regions x n_years x n_ages)
 MAA <- array(NA, dim = c(n_stocks, n_regions, n_years, n_ages))
 for(i in 1:n_stocks) for(j in 1:n_regions) MAA[i,j,,] <- petrale$lifehistory$M
@@ -284,80 +284,71 @@ index_info <- list(
 #selectivity modeling
 selectivity <- list(model = rep("logistic",4), n_selblocks = 4,
   fix_pars = list(NULL,NULL,NULL,NULL),
-  initial_pars = list(c(2,0.2),c(2,0.2),c(2,0.2),c(2,0.2)))
+  initial_pars = list(c(6,0.2),c(4,0.2),c(4,0.2),c(4,0.2)))
 
 #M modeling: fixed MAA
 M_in <- list(initial_MAA = MAA)
 
+NAA_re <- list( recruit_model=3,
+                sigma='rec',cor='iid')
+
 ##############################################
 
 #make input all at once
-input_all <- prepare_wham_input(basic_info = basic_info, selectivity = selectivity, catch_info = catch_info, index_info = index_info, M = M_in)
+input_all <- prepare_wham_input(basic_info = basic_info, 
+                                selectivity = selectivity,
+                                catch_info = catch_info, 
+                                index_info = index_info, 
+                                NAA_re = NAA_re,
+                                M = M_in,
+                                age_comp='logistic-normal-pool0'
+                                )
 
-#piece by piece
-input_seq <- prepare_wham_input(basic_info = basic_info)
-input_seq <- set_M(input_seq, M = M_in)
-input_seq <- set_catch(input_seq, catch_info = catch_info)
-input_seq <- set_F(input_seq)
-input_seq <- set_indices(input_seq, index_info = index_info)
-input_seq <- set_q(input_seq)
-input_seq <- set_selectivity(input_seq, selectivity = selectivity)
-
-#from asap input
-#input_asap <- prepare_wham_input(asap3) 
 
 names(input_all)
-
+names(input_all$pa)
 #compare 
 nofit_all <- fit_wham(input_all, do.fit = FALSE)
-nofit_seq <- fit_wham(input_seq, do.fit = FALSE)
-#nofit_asap <- fit_wham(input_asap, do.fit = FALSE)
-
 names(nofit_all)
+
+nofit_all$fn()
+
+
+
 nofit_allrep<-nofit_all$report()
-nofit_allrep[[names(nofit_allrep)[grepl("nll",names(nofit_allrep))]]]
+#nofit_allrep[[names(nofit_allrep)[grepl("nll",names(nofit_allrep))]]]
 nofit_allrep$nll
 nofit_allrep$"nll_sel"  
 nofit_allrep$"nll_agg_catch"
 nofit_allrep$"nll_Ecov_obs"
 nofit_allrep$"nll_agg_indices" 
-             
 nofit_allrep$"nll_Ecov_obs_sig" 
 nofit_allrep$"nll_NAA"          
 nofit_allrep$"nll_catch_acomp"  
 nofit_allrep$"nll_index_acomp" 
 
-nofit_seq$fn() - nofit_all$fn() #equal
-length(nofit_seq$par) - length(nofit_all$par) #equal
-
-#nofit_all$fn() - nofit_asap$fn() #different
-
-#nofit_asap$par-nofit_all$par #different
-
-#nofit_all$fn() - nofit_asap$fn(nofit_all$par) #equal
-
-fit_seq <- fit_wham(input_seq, do.retro = FALSE, do.osa = FALSE, do.sdrep = FALSE)
 fit_all <- fit_wham(input_all, do.retro = FALSE, do.osa = FALSE, do.sdrep = FALSE)
-#fit_asap <- fit_wham(input_asap, do.retro = FALSE, do.osa = FALSE, do.sdrep = FALSE)
-fit_seq$opt$obj - fit_all$opt$obj # equal
-fit_asap$opt$obj - fit_all$opt$obj # equal
 
-res_dir <- file.path(getwd(),"temp")
+#this is the best way to get the parameter estimates
+names(fit_all$env$last.par.best)
+names(fit_all$env$parList())
+
+
+res_dir <- file.path(getwd(),"petrale_onesex")
 dir.create(res_dir)
 
-saveRDS(fit_asap, file.path(res_dir,"fit_asap.RDS"))
 saveRDS(fit_all, file.path(res_dir,"fit_all.RDS"))
-saveRDS(fit_seq, file.path(res_dir,"fit_seq.RDS"))
 
-fit_asap <- do_reference_points(fit_asap, do.sdrep = TRUE)
-fit_asap$peels <- retro(fit_asap)
-fit_asap <- make_osa_residuals(fit_asap)
+
+fit_all <- do_reference_points(fit_all, do.sdrep = TRUE)
+fit_all$peels <- retro(fit_all)
+fit_all <- make_osa_residuals(fit_all)
 
 tmp.dir <- tempdir(check=TRUE)
-plot_wham_output(fit_asap, dir.main = res_dir)
+plot_wham_output(fit_all, dir.main = res_dir)
 
 fit_RDS <- file.path(res_dir,"fit.RDS")
-saveRDS(fit_asap, fit_RDS)
+saveRDS(fit_all, fit_RDS)
 
 x <- jitter_wham(fit_RDS = fit_RDS, n_jitter = 10, res_dir = res_dir, do_parallel = FALSE)
 sapply(x[[1]], function(y) y$obj) #nlls
