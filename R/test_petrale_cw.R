@@ -196,27 +196,25 @@ index_paa_raw<-petrale$comps[petrale$comps$Fleet!="Fishery",]
 index_paa_crop<-index_paa_raw[,grepl("^F[0-9]+$", names(petrale$comps))]+
   index_paa_raw[,grepl("^M[0-9]+$", names(petrale$comps))]
 
+
+
 index_paa_crop <-cbind(index_paa_raw[,c("Year","Fleet")],index_paa_crop)
 
-
+index_paa_join<-left_join(expand.grid(Year=1938:2023,Fleet=c("QCS_Syn","HS_Syn","WCVI_Syn")),index_paa_crop)
+dim(index_paa_join)
+Fleet_names=c("QCS_Syn","HS_Syn","WCVI_Syn")
 index_paa <- array(0, dim = c(n_indices,n_years , n_ages))
-for(i in 1:n_indices) index_paa[i,,] <- temp[[i]]
-
-#expand matrix so that it has all years
-catch_paa_join<-left_join(data.frame(Year=1938:2023),catch_paa_crop)
-
-dim(as.matrix(catch_paa_join[,-1]))
-
-catch_paa <- array(as.matrix(catch_paa_join[,-1]), dim = c(1,dim(catch_paa_join)))
+for(i in 1:n_indices){index_paa[i,,] <- as.matrix(index_paa_join[index_paa_join$"Fleet"==Fleet_names[i],-c(1,2)])}
 
 
 
-temp <- lapply(1:n_indices, \(i) as.matrix(read.csv(here("data", paste0("index_paa_",i,".csv")))))
+
+#temp <- lapply(1:n_indices, \(i) as.matrix(read.csv(here("data", paste0("index_paa_",i,".csv")))))
 
 
 #array used by WHAM: (n_indices x n_years x n_ages)
-index_paa <- array(0, dim = c(n_indices,dim(temp[[1]])))
-for(i in 1:n_indices) index_paa[i,,] <- temp[[i]]
+#index_paa <- array(0, dim = c(n_indices,dim(temp[[1]])))
+#for(i in 1:n_indices) index_paa[i,,] <- temp[[i]]
 
 dim(index_paa)
 
@@ -229,6 +227,8 @@ for(i in 1:n_indices) for(y in 1:n_years) use_index_paa[y,i] <- sum(!any(is.na(i
 use_index_paa[which(!index_Neff>0)] <- 0
 
 
+
+#CW stopped here.
 index_fracyr <- as.matrix(read.csv(here("data", "index_fracyr.csv")))
 
 #should be n_years x n_indices
