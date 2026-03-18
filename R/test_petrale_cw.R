@@ -189,13 +189,31 @@ selblock_pointer_indices <- t(matrix(1+1:n_indices, n_indices, n_years))
 #proportions at age matrix for each index is n_years x n_ages
 
 
+index_paa_raw<-petrale$comps[petrale$comps$Fleet!="Fishery",]
 
+
+
+index_paa_crop<-index_paa_raw[,grepl("^F[0-9]+$", names(petrale$comps))]+
+  index_paa_raw[,grepl("^M[0-9]+$", names(petrale$comps))]
+
+index_paa_crop <-cbind(index_paa_raw[,c("Year","Fleet")],index_paa_crop)
+
+
+index_paa <- array(0, dim = c(n_indices,n_years , n_ages))
+for(i in 1:n_indices) index_paa[i,,] <- temp[[i]]
+
+#expand matrix so that it has all years
+catch_paa_join<-left_join(data.frame(Year=1938:2023),catch_paa_crop)
+
+dim(as.matrix(catch_paa_join[,-1]))
+
+catch_paa <- array(as.matrix(catch_paa_join[,-1]), dim = c(1,dim(catch_paa_join)))
 
 
 
 temp <- lapply(1:n_indices, \(i) as.matrix(read.csv(here("data", paste0("index_paa_",i,".csv")))))
 
-dim(temp)
+
 #array used by WHAM: (n_indices x n_years x n_ages)
 index_paa <- array(0, dim = c(n_indices,dim(temp[[1]])))
 for(i in 1:n_indices) index_paa[i,,] <- temp[[i]]
