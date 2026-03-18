@@ -53,8 +53,10 @@ waa_pointer_ssb <- 1
 #1 column for 1 stock
 #the fraction of the year that happened before the stock ocurred. 
 #fracyr_ssb <- as.matrix(read.csv(here("data", "fracyr_ssb.csv")))
-fracyr_ssb <- matrix(0, ncol=1, nrow=n_years)
+fracyr_ssb <- as.matrix(rep(0,n_years))
+dim(fracyr_ssb)
 
+basic_info$fracyr_SSB
 #Make MAA array (n_stocks x n_regions x n_years x n_ages)
 MAA <- array(NA, dim = c(n_stocks, n_regions, n_years, n_ages))
 for(i in 1:n_stocks) for(j in 1:n_regions) MAA[i,j,,] <- petrale$lifehistory$M
@@ -94,7 +96,7 @@ catch_paa_join<-left_join(data.frame(Year=1938:2023),catch_paa_crop)
 
 dim(as.matrix(catch_paa_join[,-1]))
 
-catch_paa <- array(as.matrix(catch_paa_join[,-1]), dim = c(1,dim(catch_paa_join)))
+catch_paa <- array(as.matrix(catch_paa_join[,-1]), dim = c(1,dim(catch_paa_join[,-1])))
 
   #as.matrix(read.csv(here("data", "catch_paa_fleet_1.csv")))
 dim(catch_paa) 
@@ -176,7 +178,7 @@ catch_Neff_raw4 <- index_Neff_raw[index_Neff_raw$Fleet=="WCVI_Syn",c("Year","Sam
 
 index_Neff <-as.matrix(cbind(catch_Neff_raw2$"Sample Size",
                              catch_Neff_raw3$"Sample Size",
-                             catch_Neff_raw3$"Sample Size"))
+                             catch_Neff_raw4$"Sample Size"))
 
 
 
@@ -228,13 +230,15 @@ use_index_paa[which(!index_Neff>0)] <- 0
 
 
 
-#CW stopped here.
-index_fracyr <- as.matrix(read.csv(here("data", "index_fracyr.csv")))
+
+index_fracyr <- matrix(0.5,ncol=3, nrow=n_years)
+#<- as.matrix(read.csv(here("data", "index_fracyr.csv")))
 
 #should be n_years x n_indices
 dim(index_fracyr)
 
-waa_pointer_indices <- 1  + 1:n_indices
+waa_pointer_indices <- rep(1,n_indices)
+  #1  + 1:n_indices
 
 
 ##############################################
@@ -246,7 +250,7 @@ basic_info <- list(
   n_fleets = n_fleets,
   fracyr_SSB = fracyr_ssb,
   maturity = mat,
-  years = 1973:2011, #length must be n_years
+  years = 1938:2023, #length must be n_years
   waa = waa,
   waa_pointer_ssb = waa_pointer_ssb
 )
@@ -278,9 +282,9 @@ index_info <- list(
 )
 
 #selectivity modeling
-selectivity <- list(model = rep("logistic",6), n_selblocks = 6,
-  fix_pars = list(NULL,NULL,NULL,NULL, 1:2, 1:2),
-  initial_pars = list(c(2,0.2),c(2,0.2),c(2,0.2),c(2,0.2),c(1.5,0.1),c(1.5,0.1)))
+selectivity <- list(model = rep("logistic",4), n_selblocks = 4,
+  fix_pars = list(NULL,NULL,NULL,NULL),
+  initial_pars = list(c(2,0.2),c(2,0.2),c(2,0.2),c(2,0.2)))
 
 #M modeling: fixed MAA
 M_in <- list(initial_MAA = MAA)
@@ -300,27 +304,41 @@ input_seq <- set_q(input_seq)
 input_seq <- set_selectivity(input_seq, selectivity = selectivity)
 
 #from asap input
-input_asap <- prepare_wham_input(asap3) 
+#input_asap <- prepare_wham_input(asap3) 
 
 names(input_all)
 
 #compare 
 nofit_all <- fit_wham(input_all, do.fit = FALSE)
 nofit_seq <- fit_wham(input_seq, do.fit = FALSE)
-nofit_asap <- fit_wham(input_asap, do.fit = FALSE)
+#nofit_asap <- fit_wham(input_asap, do.fit = FALSE)
+
+names(nofit_all)
+nofit_allrep<-nofit_all$report()
+nofit_allrep[[names(nofit_allrep)[grepl("nll",names(nofit_allrep))]]]
+nofit_allrep$nll
+nofit_allrep$"nll_sel"  
+nofit_allrep$"nll_agg_catch"
+nofit_allrep$"nll_Ecov_obs"
+nofit_allrep$"nll_agg_indices" 
+             
+nofit_allrep$"nll_Ecov_obs_sig" 
+nofit_allrep$"nll_NAA"          
+nofit_allrep$"nll_catch_acomp"  
+nofit_allrep$"nll_index_acomp" 
 
 nofit_seq$fn() - nofit_all$fn() #equal
 length(nofit_seq$par) - length(nofit_all$par) #equal
 
-nofit_all$fn() - nofit_asap$fn() #different
+#nofit_all$fn() - nofit_asap$fn() #different
 
-nofit_asap$par-nofit_all$par #different
+#nofit_asap$par-nofit_all$par #different
 
-nofit_all$fn() - nofit_asap$fn(nofit_all$par) #equal
+#nofit_all$fn() - nofit_asap$fn(nofit_all$par) #equal
 
 fit_seq <- fit_wham(input_seq, do.retro = FALSE, do.osa = FALSE, do.sdrep = FALSE)
 fit_all <- fit_wham(input_all, do.retro = FALSE, do.osa = FALSE, do.sdrep = FALSE)
-fit_asap <- fit_wham(input_asap, do.retro = FALSE, do.osa = FALSE, do.sdrep = FALSE)
+#fit_asap <- fit_wham(input_asap, do.retro = FALSE, do.osa = FALSE, do.sdrep = FALSE)
 fit_seq$opt$obj - fit_all$opt$obj # equal
 fit_asap$opt$obj - fit_all$opt$obj # equal
 
