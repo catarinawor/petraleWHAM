@@ -77,6 +77,7 @@ dim(catch)
 n_fleets <- NCOL(catch)
 
 catch_cv <- as.matrix(petrale$catch$SE, ncol=1)
+catch_cv <- as.matrix(rep(0.05,length(petrale$catch$SE)), ncol=1)
   #as.matrix(read.csv(here("data", "catch_cv.csv")))
 any(!catch_cv>0) #cannot be any years with cv missing
 
@@ -241,6 +242,14 @@ waa_pointer_indices <- rep(1,n_indices)
   #1  + 1:n_indices
 
 
+#set initial values fo F
+#matrix (length(years) x n_fleets) of annual fishing mortality rates for each fleet to initialize the model.
+length(c(0.1,0.1,rep(0.5,8),2,rep(0.5,29),rep(0.25,46)))
+length(F)  
+F<- matrix(c(0.1,0.1,rep(0.5,8),2,rep(0.5,29),rep(0.25,46)),
+          ncol=1)
+cbind(1938:2023,catch)
+
 ##############################################
 #create list arguments to prepare_wham_input and/or set_* functions
 basic_info <- list(
@@ -251,9 +260,14 @@ basic_info <- list(
   fracyr_SSB = fracyr_ssb,
   maturity = mat,
   years = 1938:2023, #length must be n_years
-  waa = waa,
-  waa_pointer_ssb = waa_pointer_ssb
+  waa = waa/1000,
+  waa_pointer_ssb = waa_pointer_ssb,
+  F=F#matrix (length(years) x n_fleets) of annual fishing mortality rates for each fleet to initialize the model.
 )
+
+dim(waa)
+
+
 
 catch_info <- list(
   n_fleets = n_fleets,
@@ -279,18 +293,34 @@ index_info <- list(
   index_Neff = index_Neff,
   selblock_pointer_indices = selblock_pointer_indices,
   waa_pointer_indices = waa_pointer_indices
+  #initial_index_sd_scale = rep(1,n_indices),
+  #map_index_sd_scale = 1:n_indices
 )
 
 #selectivity modeling
 selectivity <- list(model = rep("logistic",4), n_selblocks = 4,
   fix_pars = list(NULL,NULL,NULL,NULL),
-  initial_pars = list(c(6,0.2),c(4,0.2),c(4,0.2),c(4,0.2)))
+  initial_pars = list(c(5,0.4),c(3,0.2),c(3,0.2),c(3,0.2)))
 
 #M modeling: fixed MAA
 M_in <- list(initial_MAA = MAA)
 
-NAA_re <- list( recruit_model=3,
-                sigma='rec',cor='iid')
+#NAA_re <- list( recruit_model=3,
+#                sigma='rec',cor='iid')
+N1_pars = array(0,dim=c(1,1,2))
+N1_pars[1,1,]<-c(exp(9.3),0.0000001)
+
+#N1_pars = array(0,dim=c(1,1,n_ages))
+#N1_pars[1,1,]<-rep(exp(9.3),22)
+#NAA_re <- list(N1_model = "equilibrium", N1_pars = N1_pars,
+#                sigma="rec", cor="iid", recruit_model=3,
+#               recruit_pars=list(1.690357492,0.000136746526638223)) 
+
+
+#NAA_re <- list( sigma="rec", cor="iid", recruit_model=3) 
+NAA_re <- list(N1_model = "equilibrium", N1_pars = N1_pars)
+               
+                             
 
 ##############################################
 
@@ -301,21 +331,33 @@ input_all <- prepare_wham_input(basic_info = basic_info,
                                 index_info = index_info, 
                                 NAA_re = NAA_re,
                                 M = M_in,
-                                age_comp='logistic-normal-pool0'
+                                age_comp='dir-mult'
+                                
                                 )
 
 
 names(input_all)
-names(input_all$pa)
+names(input_all$map)
+
+input_all$map[7]
+
+input_all$par$mean_rec_pars
+#input_all$par$mean_rec_pars<-matrix()
+#input_all$map$mean_rec_pars<-NA
 #compare 
 nofit_all <- fit_wham(input_all, do.fit = FALSE)
-names(nofit_all)
 
+names(nofit_all)
 nofit_all$fn()
+nofit_all$gr()
+#nofit_all$par$mean_rec_pars
+names(nofit_all$par)
+input_all$map
 
 
 
 nofit_allrep<-nofit_all$report()
+names(nofit_allrep)
 #nofit_allrep[[names(nofit_allrep)[grepl("nll",names(nofit_allrep))]]]
 nofit_allrep$nll
 nofit_allrep$"nll_sel"  
@@ -328,11 +370,56 @@ nofit_allrep$"nll_catch_acomp"
 nofit_allrep$"nll_index_acomp" 
 
 fit_all <- fit_wham(input_all, do.retro = FALSE, do.osa = FALSE, do.sdrep = FALSE)
+check_convergence(fit_all)
+
+
+names(input_all$map)
+names(input_all$par)
+fit_all$env$last.par.best-nofit_all$env$last.par.best
+
+exp(fit_all$env$last.par.best[1:2])
+
+
+nofit_allrep$"nll_sel"  
+nofit_allrep$"nll_agg_catch"
+nofit_allrep$"nll_Ecov_obs"
+nofit_allrep$"nll_agg_indices" 
+nofit_allrep$"nll_Ecov_obs_sig" 
+nofit_allrep$"nll_NAA"          
+nofit_allrep$"nll_catch_acomp"  
+nofit_allrep$"nll_index_acomp" 
+
+fit_allrep <- fit_all$report()
+names(fit_allrep)
+exp(fit_allrep$"log_SR_a")
+exp(fit_allrep$"log_SR_b")
+
+
+names(fit_all)
+fit_all$gr()
+fit_all$par
+
+nofit_allrep$nll
+nofit_allrep$"nll_sel"  
+nofit_allrep$"nll_agg_catch"
+nofit_allrep$"nll_Ecov_obs"
+nofit_allrep$"nll_agg_indices" 
+nofit_allrep$"nll_Ecov_obs_sig" 
+nofit_allrep$"nll_NAA"          
+nofit_allrep$"nll_catch_acomp"  
+nofit_allrep$"nll_index_acomp" 
+
+
 
 #this is the best way to get the parameter estimates
 names(fit_all$env$last.par.best)
 names(fit_all$env$parList())
 
+
+fit_all$env$last.par.best["mean_rec_pars"] 
+
+
+"mean_rec_pars"  "logit_q"        "logit_q"  
 
 res_dir <- file.path(getwd(),"petrale_onesex")
 dir.create(res_dir)
@@ -352,4 +439,7 @@ saveRDS(fit_all, fit_RDS)
 
 x <- jitter_wham(fit_RDS = fit_RDS, n_jitter = 10, res_dir = res_dir, do_parallel = FALSE)
 sapply(x[[1]], function(y) y$obj) #nlls
+
+#find the recruitment parameters, including process sigma
+
 
